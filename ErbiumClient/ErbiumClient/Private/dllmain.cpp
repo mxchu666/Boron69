@@ -4,6 +4,7 @@
 #include "../Public/Client.h"
 #include <thread>
 #include <cstdio>
+#include <io.h>
 
 void ForceIris(uintptr_t IrisBool)
 {
@@ -42,8 +43,12 @@ void Main()
     SetConsoleTitleA("BoronClient");
 
     */
-    HANDLE logFile = CreateFileA("Boron_ClientLogs.txt", GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    
+    FILE* LogStream = nullptr;
+    freopen_s(&LogStream, "Boron_ClientLogs.txt", "w", stdout);
+    _dup2(_fileno(stdout), _fileno(stderr));
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+
     SDK::Init();
 
 

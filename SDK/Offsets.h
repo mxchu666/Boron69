@@ -602,6 +602,39 @@ namespace SDK
         Crypto.CastFlagsSubtract = 0x10E1364D;
     }
 
+    inline bool ReadBuildIdentityFromPE(uint64_t& OutCL, double& OutFortniteVersion, double& OutEngineVersion)
+    {
+        struct FKnownBuild
+        {
+            uint32_t SizeOfImage;
+            uint32_t TimeDateStamp;
+            uint64_t CL;
+            double FortniteVersion;
+            double EngineVersion;
+        };
+
+        static const FKnownBuild Known[] = {
+            { 0x1CAD0000, 0xF748044D, 59343437, 42.40, 6.0 }, // 42.40 / UE 6.0
+        };
+
+        auto Base = (uint8_t*)GetModuleHandleW(nullptr);
+        auto Nt = (IMAGE_NT_HEADERS*)(Base + ((IMAGE_DOS_HEADER*)Base)->e_lfanew);
+
+        for (auto& Build : Known)
+        {
+            if (Nt->OptionalHeader.SizeOfImage != Build.SizeOfImage || Nt->FileHeader.TimeDateStamp != Build.TimeDateStamp)
+                continue;
+
+            OutCL = Build.CL;
+            OutFortniteVersion = Build.FortniteVersion;
+            OutEngineVersion = Build.EngineVersion;
+
+            return true;
+        }
+
+        return false;
+    }
+
     inline bool ReadBuildStringFromImage(std::wstring& Out)
     {
         auto Base = (uint8_t*)GetModuleHandleW(nullptr);
@@ -660,99 +693,114 @@ namespace SDK
 
         std::wstring BuildString;
 
-        if (auto GetEngineVersion = (FStringNoOps * (*)(FStringNoOps * _Out)) GetEngineVersionMethod1.Get())
+        // 42.40+ ships no plaintext build string: every "++Fortnite+Release-" scan comes back
+        // empty, FortniteCL stays 0 and every version-gated offset block is skipped. The PE
+        // header cannot be reworded, so it is matched before the string scans are tried.
+        uint64_t FingerprintCL = 0;
+        double FingerprintFortnite = 0.0, FingerprintEngine = 0.0;
+
+        if (ReadBuildIdentityFromPE(FingerprintCL, FingerprintFortnite, FingerprintEngine))
         {
-            GetEngineVersion(&OutVar);
-            BuildString = OutVar.Data;
+            Offsets::FortniteCL = FingerprintCL;
+            VersionInfo.FortniteVersion = FingerprintFortnite;
+            VersionInfo.EngineVersion = FingerprintEngine;
         }
         else
         {
-            auto GetEngineVersionMethod2 = Memcury::Scanner::FindPattern("40 53 48 83 EC ? 33 C0 49 8B D8 48 39 42 ? 0F 95 C0 48 01 42 ? E8 ? ? ? ? 41 B8", false);
-
-            if (GetEngineVersionMethod2.Get())
+            if (auto GetEngineVersion = (FStringNoOps * (*)(FStringNoOps * _Out)) GetEngineVersionMethod1.Get())
             {
-                auto CopyOfMethod2 = GetEngineVersionMethod2;
-
-                auto GetStorage = (void* (*)())GetEngineVersionMethod2.RelativeOffset(23).Get();
-                auto GetEngineVersion2 = (void (*)(void*, FStringNoOps*, int))CopyOfMethod2.RelativeOffset(42).Get();
-
-                GetEngineVersion2(GetStorage(), &OutVar, 4); // no idea why 4 but sure
+                GetEngineVersion(&OutVar);
                 BuildString = OutVar.Data;
             }
-            else if (!ReadBuildStringFromImage(BuildString))
-                BuildString = L"0.0-0+++Fortnite+Release-0.0";
-        }
-
-        std::wstring EngineVersion = BuildString.substr(0, BuildString.find(L'-'));
-        std::wstring FortniteCL = BuildString.substr(BuildString.find(L'-') + 1, BuildString.find(L'+') - BuildString.find(L'-') - 1);
-
-        if (EngineVersion == L"4.26.1")
-            EngineVersion = L"4.27.0";
-
-        if (EngineVersion.find_first_of(L'.') != EngineVersion.find_last_of(L'.'))
-            EngineVersion.erase(EngineVersion.rfind(L'.'));
-
-        auto FortniteCLNum = std::stoull(FortniteCL);
-        Offsets::FortniteCL = FortniteCLNum;
-
-        VersionInfo.EngineVersion = std::stod(EngineVersion);
-        // these builds were just called "Cert"
-        if (FortniteCLNum < 3901517)
-        {
-            switch (FortniteCLNum)
+            else
             {
-            case 3668626:
-                VersionInfo.FortniteVersion = 1.64;
-                break;
-            case 3681159:
-                VersionInfo.FortniteVersion = 1.7;
-                break;
-            case 3700114:
-                VersionInfo.FortniteVersion = 1.72;
-                break;
-            case 3724489:
-                VersionInfo.FortniteVersion = 1.8;
-                break;
-            case 3729133:
-                VersionInfo.FortniteVersion = 1.81;
-                break;
-            case 3741772:
-                VersionInfo.FortniteVersion = 1.82;
-                break;
-            case 3757339:
-                VersionInfo.FortniteVersion = 1.9;
-                break;
-            case 3775276:
-                VersionInfo.FortniteVersion = 1.91;
-                break;
-            case 3790078:
-                VersionInfo.FortniteVersion = 1.10;
-                break;
-            case 3807424:
-                VersionInfo.FortniteVersion = 1.11;
-                break;
-            case 3825894:
-                VersionInfo.FortniteVersion = 2.1;
-                break;
-            case 3841827:
-                VersionInfo.FortniteVersion = 2.2;
-                break;
-            case 3847564:
-                VersionInfo.FortniteVersion = 2.3;
-                break;
-            case 3858292:
-                VersionInfo.FortniteVersion = 2.4;
-                break;
-            case 3870737:
-                VersionInfo.FortniteVersion = 2.42;
-                break;
-            case 3889387:
-                VersionInfo.FortniteVersion = 2.5;
-                break;
+                auto GetEngineVersionMethod2 = Memcury::Scanner::FindPattern("40 53 48 83 EC ? 33 C0 49 8B D8 48 39 42 ? 0F 95 C0 48 01 42 ? E8 ? ? ? ? 41 B8", false);
+
+                if (GetEngineVersionMethod2.Get())
+                {
+                    auto CopyOfMethod2 = GetEngineVersionMethod2;
+
+                    auto GetStorage = (void* (*)())GetEngineVersionMethod2.RelativeOffset(23).Get();
+                    auto GetEngineVersion2 = (void (*)(void*, FStringNoOps*, int))CopyOfMethod2.RelativeOffset(42).Get();
+
+                    GetEngineVersion2(GetStorage(), &OutVar, 4); // no idea why 4 but sure
+                    BuildString = OutVar.Data;
+                }
+                else if (!ReadBuildStringFromImage(BuildString))
+                    BuildString = L"0.0-0+++Fortnite+Release-0.0";
             }
+
+            std::wstring EngineVersion = BuildString.substr(0, BuildString.find(L'-'));
+            std::wstring FortniteCL = BuildString.substr(BuildString.find(L'-') + 1, BuildString.find(L'+') - BuildString.find(L'-') - 1);
+
+            if (EngineVersion == L"4.26.1")
+                EngineVersion = L"4.27.0";
+
+            if (EngineVersion.find_first_of(L'.') != EngineVersion.find_last_of(L'.'))
+                EngineVersion.erase(EngineVersion.rfind(L'.'));
+
+            auto FortniteCLNum = std::stoull(FortniteCL);
+            Offsets::FortniteCL = FortniteCLNum;
+
+            VersionInfo.EngineVersion = std::stod(EngineVersion);
+            // these builds were just called "Cert"
+            if (FortniteCLNum < 3901517)
+            {
+                switch (FortniteCLNum)
+                {
+                case 3668626:
+                    VersionInfo.FortniteVersion = 1.64;
+                    break;
+                case 3681159:
+                    VersionInfo.FortniteVersion = 1.7;
+                    break;
+                case 3700114:
+                    VersionInfo.FortniteVersion = 1.72;
+                    break;
+                case 3724489:
+                    VersionInfo.FortniteVersion = 1.8;
+                    break;
+                case 3729133:
+                    VersionInfo.FortniteVersion = 1.81;
+                    break;
+                case 3741772:
+                    VersionInfo.FortniteVersion = 1.82;
+                    break;
+                case 3757339:
+                    VersionInfo.FortniteVersion = 1.9;
+                    break;
+                case 3775276:
+                    VersionInfo.FortniteVersion = 1.91;
+                    break;
+                case 3790078:
+                    VersionInfo.FortniteVersion = 1.10;
+                    break;
+                case 3807424:
+                    VersionInfo.FortniteVersion = 1.11;
+                    break;
+                case 3825894:
+                    VersionInfo.FortniteVersion = 2.1;
+                    break;
+                case 3841827:
+                    VersionInfo.FortniteVersion = 2.2;
+                    break;
+                case 3847564:
+                    VersionInfo.FortniteVersion = 2.3;
+                    break;
+                case 3858292:
+                    VersionInfo.FortniteVersion = 2.4;
+                    break;
+                case 3870737:
+                    VersionInfo.FortniteVersion = 2.42;
+                    break;
+                case 3889387:
+                    VersionInfo.FortniteVersion = 2.5;
+                    break;
+                }
+            }
+            else
+                VersionInfo.FortniteVersion = std::stod(BuildString.substr(BuildString.rfind(L'-') + 1));
         }
-        else
-            VersionInfo.FortniteVersion = std::stod(BuildString.substr(BuildString.rfind(L'-') + 1));
 
         bUE51 = VersionInfo.FortniteVersion >= 24.00;
 
@@ -1213,6 +1261,15 @@ namespace SDK
         BoronChk("StaticLoadObject", Offsets::StaticLoadObject);
         BoronChk("FNameConstructor", Offsets::FNameConstructor);
         BoronChk("SpawnActor", Offsets::SpawnActor);
+
+        if (!Offsets::GObjectsChunked && !Offsets::GObjectsUnchunked)
+        {
+            // Reflection without an object array is a null deref three frames later, so the
+            // failure is reported once, plainly, instead of crashing inside InitializeProcessEventVft.
+            printf("[Boron][Init] FATAL: GObjects unresolved (CL %llu, FN %.2f, UE %.2f) -- no offset block matched this build\n",
+                   (unsigned long long)Offsets::FortniteCL, VersionInfo.FortniteVersion, VersionInfo.EngineVersion);
+            return;
+        }
 
         InitializeProcessEventVft(addr);
     }
