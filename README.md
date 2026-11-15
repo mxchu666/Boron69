@@ -198,3 +198,16 @@ Erbium is a WIP universal gameserver for Fortnite.
 >
 > Lunar for the proper building editing + looting reference code (33.30 edit/loot work) <3
 
+---
+
+## Copyright
+
+```
+Copyright 2025 Ploosh
+Copyright 2026 Ducki67 (Boron modifications)
+```
+
+Released under the BSD 3-Clause License in [LICENSE](LICENSE). Both copyright notices above are
+retained as required by clause 1 of that license. My additions in this fork (38.00 / 42.40 support)
+sit on top of Ducki67's work and do not replace either notice.
+
