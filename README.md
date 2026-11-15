@@ -1,7 +1,7 @@
+> **Fork of [Ducki67/Boron](https://github.com/Ducki67/Boron)**
+
 # Boron
 <img width="60" height="60" alt="image" src="https://github.com/user-attachments/assets/276c5e4a-2821-4461-9245-51984a8e255d" />
-
-### This is a fork. The original project is [**Ducki67/Boron**](https://github.com/Ducki67/Boron)
 
 [![Stars](https://img.shields.io/github/stars/Ducki67/Boron?style=social&label=star%20Ducki67%2FBoron)](https://github.com/Ducki67/Boron)
 
