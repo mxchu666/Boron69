@@ -147,6 +147,23 @@ public:
 
     DEFINE_FUNC(OnRep_CosmeticLoadout, void);
     DEFINE_FUNC(OnRep_ActiveArchetypes, void);
+
+    // 42.40 changed the signature to OnRep_CosmeticLoadout(const FCosmeticLoadout& Old).
+    // Call() with zero args hits the fast path ProcessEvent(Function, nullptr), which the
+    // game dereferences as the by-ref param. Older builds take no param and ignore the
+    // buffer, so handing it one unconditionally is safe on every version.
+    void FireCosmeticLoadoutChanged() const
+    {
+        auto Fn = GetFunction("OnRep_CosmeticLoadout");
+
+        if (!Fn)
+            return;
+
+        // FCosmeticLoadout is 0x10 before 40.xx and 0x28 on 42.40; pad past both.
+        struct { uint8_t Previous[0x40]; } Prev{};
+
+        ProcessEvent(Fn, &Prev);
+    }
 };
 
 struct FFortPlayerDeathReport

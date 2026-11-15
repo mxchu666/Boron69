@@ -4633,7 +4633,7 @@ void AFortPlayerControllerAthena::ServerSetMultiProductCosmeticLoadout_(UObject*
                 BORON_LOG("[Boron][Cosmetics] archetypes: copied %d from RPC\n", rpcNum);
         }
 
-        CosmeticComp->OnRep_CosmeticLoadout();
+        CosmeticComp->FireCosmeticLoadoutChanged();
         CosmeticComp->OnRep_ActiveArchetypes();
 
         static int onr = 0;

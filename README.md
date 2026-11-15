@@ -127,6 +127,32 @@ Still pattern-scanned and **not** in either dump, so they need one run against t
 `Realloc`, the per-CL crash patch list in `dllmain.cpp`, the GFS plugin RVAs, and the
 `GIsClient` / `GIsServer` overrides in `Finders.cpp`.
 
+### Living World Manager and cosmetics on 42.40
+
+Both are data-driven: every class and property they touch is looked up by name at runtime, so a
+layout change between builds does not break them. Checked against the 42.40 dump:
+
+- `AFortAthenaLivingWorldStaticPointProvider` moved module (`FortniteGame` -> `LagerRuntime`) but
+  keeps the name and the `FiltersTags` / `SpawnPoints` / `bStartEnabled` properties, so
+  `FindClass` + `DEFINE_PROP` resolve it unchanged.
+- `FFortAthenaLoadout` moved every field (`Pickaxe` 0x98 -> 0x30, `Character` 0xA0 -> 0x38,
+  `CharacterVariantChannels` 0xA8 -> 0x40) and gained the Ch7 slots (`guitar`, `bass`, `Drums`,
+  `Mic`, `Keytar`, `Aura`, `UnsupportedSlots`). Name lookup absorbs all of it.
+- The native slot path (`SetCosmeticLoadout` + `OnRep_CosmeticLoadout`) already carries the slots
+  the repo never names, which is why shoes, instruments and auras need no per-slot code.
+
+One real 42.40 change needed a fix. `UFortControllerComponent_CosmeticLoadout::OnRep_CosmeticLoadout`
+took no parameters before and now takes `const FCosmeticLoadout& OldCosmeticLoadout`. `Call` with
+zero arguments uses the fast path `ProcessEvent(Function, nullptr)`, so the game was handed a null
+reference as the by-ref parameter. `FireCosmeticLoadoutChanged()` in `FortPlayerControllerAthena.h`
+passes a zeroed 0x40 buffer instead, which is safe on builds that take no parameter and valid on
+42.40 where `FCosmeticLoadout` is 0x28.
+
+`SetLoadoutCtrl`, the hardcoded fast path for the loadout RPC, has no 42.40 RVA, so it stays 0 and
+falls through to `ServerSetMultiProductCosmeticLoadout_OG`. That is the correct original function,
+so the path works, just without the shortcut. The same is true of the MCP dispatch hook
+(`SendRequestNow`), which on 42.40 is only reachable through the pattern scan.
+
 Run the server on 38.00 or 42.40 and read the `[Boron][Init] ... FAIL <<<` lines: every one of
 those names the offset still missing.
 

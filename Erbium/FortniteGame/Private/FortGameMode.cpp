@@ -1497,7 +1497,7 @@ AActor* AFortGameMode::SpawnDefaultPawnFor_Native(AFortGameMode* GameMode, AFort
         auto CosmeticComp = CosmeticCompClass ? (UFortControllerComponent_CosmeticLoadout*)NewPlayer->GetComponentByClass((UClass*)CosmeticCompClass) : nullptr;
         if (CosmeticComp)
         {
-            CosmeticComp->OnRep_CosmeticLoadout();
+            CosmeticComp->FireCosmeticLoadoutChanged();
             if (CosmeticComp->HasActiveArchetypes())
                 CosmeticComp->OnRep_ActiveArchetypes();
         }
