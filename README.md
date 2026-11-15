@@ -1,7 +1,16 @@
 # Boron
 <img width="60" height="60" alt="image" src="https://github.com/user-attachments/assets/276c5e4a-2821-4461-9245-51984a8e255d" />
 
-A modifiyed/forked Erbium gameserver with my own features and fixes
+### This is a fork. The original project is [**Ducki67/Boron**](https://github.com/Ducki67/Boron)
+
+[![Stars](https://img.shields.io/github/stars/Ducki67/Boron?style=social&label=star%20Ducki67%2FBoron)](https://github.com/Ducki67/Boron)
+
+**Everything here came from Ducki67's repo first.** If you found this useful, go star
+[**Ducki67/Boron**](https://github.com/Ducki67/Boron), not this fork. As Ducki67 himself put it:
+*"just don't go stealing all my stars from my repo, haha!"* Use upstream, and come back here only
+if you specifically want the 38.00 / 42.40 work.
+
+A modified/forked Erbium gameserver with my own features and fixes
 
 ### info and updates are coming soon.. :)
 
@@ -175,6 +184,10 @@ Erbium is a WIP universal gameserver for Fortnite.
 
 
 > ## Credits
+> **This fork is built entirely on [Ducki67/Boron](https://github.com/Ducki67/Boron) — go star that repo, not this one.**
+>
+> [**Ducki67**](https://github.com/Ducki67) for Boron itself: the fork of Erbium, its features, its fixes and all the work this repo merely extends.
+>
 > If you use this, please give credits to: [Ploosh](https://github.com/plooshi).
 > 
 > Credit to Milxnor for parts of Finders.cpp
