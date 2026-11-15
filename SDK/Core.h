@@ -50,7 +50,13 @@ namespace SDK
 
         int32 GetDisplayIndex() const
         {
-            if (!Offsets::FNameIndexKey || !ComparisonIndex)
+            if (!ComparisonIndex)
+                return ComparisonIndex;
+
+            if (Crypto.bBswapScheme)
+                return (int32)(((Bswap32((uint32_t)ComparisonIndex - 1) ^ Crypto.NameIndexKey) + 1));
+
+            if (!Offsets::FNameIndexKey)
                 return ComparisonIndex;
 
             if (Crypto.bRor3Scheme)
@@ -759,6 +765,9 @@ namespace SDK
     public:
         class UObject* GetItemObject() const
         {
+            if (UsesKeyScheme())
+                return (class UObject*)DecryptObjectItemPtr(Bytes);
+
             auto Stored = *(uint64_t*)(Bytes + Offsets::ObjectItemObject);
             if (Crypto.bRor3Scheme)
                 return Stored ? (class UObject*)(Stored ^ Crypto.ObjectXor) : nullptr;
@@ -796,6 +805,12 @@ namespace SDK
     public:
         inline int Num() const
         {
+            if (Crypto.bBswapScheme)
+                return (int32)(Bswap32(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayNum)) ^ Crypto.NumElementsKey);
+
+            if (Crypto.bKeyScheme)
+                return (int32)(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayNum) ^ Crypto.NumElementsKey);
+
             if (Crypto.bRor3Scheme)
                 return (int32)(Ror32(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayNum), 3) + Crypto.NumElementsAdd);
 
@@ -804,6 +819,12 @@ namespace SDK
 
         inline int Max() const
         {
+            if (Crypto.bBswapScheme)
+                return (int32)(Bswap32(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayMax)) ^ Crypto.MaxElementsKey);
+
+            if (Crypto.bKeyScheme)
+                return (int32)(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayMax) ^ Crypto.MaxElementsKey);
+
             if (Crypto.bRor3Scheme)
                 return Num();
 
@@ -818,11 +839,26 @@ namespace SDK
             if (Index < 0 || Index >= Num())
                 return nullptr;
 
-            if (Offsets::ObjArrayNumChunks >= 0 && ChunkIndex >= (int32)(*(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayNumChunks) ^ Crypto.NumChunksXor))
-                return nullptr;
+            if (Offsets::ObjArrayNumChunks >= 0)
+            {
+                const uint32_t StoredChunks = *(const uint32_t*)((const uint8_t*)this + Offsets::ObjArrayNumChunks);
+                const int32 NumChunks = Crypto.bBswapScheme ? (int32)(Bswap32(StoredChunks) ^ Crypto.NumChunksKey)
+                                        : Crypto.bKeyScheme ? (int32)(StoredChunks ^ Crypto.NumChunksKey)
+                                                            : (int32)(StoredChunks ^ Crypto.NumChunksXor);
+
+                if (ChunkIndex >= NumChunks)
+                    return nullptr;
+            }
 
             auto StoredChunks = *(const uint64_t*)((const uint8_t*)this + Offsets::ObjArrayObjects);
-            auto Chunks = Crypto.bRor3Scheme ? (uint8_t**)(~StoredChunks ^ Crypto.ObjectsNotXor) : (uint8_t**)DecryptPointer(StoredChunks, Crypto.ObjectsRotate, Crypto.ObjectsSubtract);
+            uint8_t** Chunks;
+            if (Crypto.bBswapScheme)
+                Chunks = (uint8_t**)(Bswap64(StoredChunks) ^ Crypto.ObjectsKey);
+            else if (Crypto.bKeyScheme)
+                Chunks = (uint8_t**)(StoredChunks ^ Crypto.ObjectsKey);
+            else
+                Chunks = Crypto.bRor3Scheme ? (uint8_t**)(~StoredChunks ^ Crypto.ObjectsNotXor) : (uint8_t**)DecryptPointer(StoredChunks, Crypto.ObjectsRotate, Crypto.ObjectsSubtract);
+
             if (!Chunks || !Chunks[ChunkIndex])
                 return nullptr;
 
@@ -1015,6 +1051,12 @@ namespace SDK
 
     inline uint64_t UClass::GetCastFlags() const
     {
+        if (Offsets::CastFlags && Crypto.bBswapScheme)
+            return Bswap64(*(uint64_t*)(__int64(this) + Offsets::CastFlags)) ^ Crypto.CastFlagsKey;
+
+        if (Offsets::CastFlags && Crypto.bKeyScheme)
+            return *(uint64_t*)(__int64(this) + Offsets::CastFlags);
+
         if (Offsets::CastFlags && Crypto.bRor3Scheme)
             return ~*(uint64_t*)(__int64(this) + Offsets::CastFlags) ^ Crypto.CastFlagsNotXor;
 

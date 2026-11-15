@@ -63,6 +63,8 @@ Currently the only versions that are "supported" are below:
 | v32.11 | Chapter 2 Remix | Supported but still missing a bit (Oasis reload works now!) |
 | v33.30 | Chapter 6 Season 1 | Supported should work bette now |
 | v34.40 | Chapter 6 Season 2 | Supported (BR + OG mode work) |
+| v38.00 | Chapter 7 Season 1 | Reflection layer wired, needs live exe for the rest |
+| v42.40 | Chapter 7 Season 3 | Reflection layer wired, needs live exe for the rest |
 
 
 
@@ -82,6 +84,43 @@ Currently the only versions that are "supported" are below:
 - Progress (33.30): **6% Done** (currently being worked on)
 
 - Progress (34.40): **~20% Done** (currently being worked on) - BR, OG mode + OG loot, Pump & Dump work. Still broken: Kneecapper, Mortal Kombat items, sticky grenade launcher
+
+- Progress (38.00): **~15% Done** (reflection + globals only) - see below
+
+- Progress (42.40): **~15% Done** (reflection + globals only) - see below
+
+## 38.00 / 42.40 support status
+
+Both builds changed the reflection layer again: object and property fields are no longer
+rotate/shift obfuscated, they are keyed. Two new crypto schemes handle it
+(`Crypto.bKeyScheme` for 38.00, `Crypto.bBswapScheme` for 42.40), all decrypt logic lives in the
+`Read*` helpers in `SDK/Offsets.h`, and the class layouts + global RVAs are filled in from the
+FortDumper output for CL 47722112 (38.00 / UE 5.7) and CL 59343437 (42.40 / UE 6.0).
+
+Wired and verified against the dumps:
+
+| Item | 38.00 | 42.40 |
+|---|---|---|
+| GObjects array struct + encrypted chunks | `0x16CFAF80` | `0x1B03A2C0` |
+| `FUObjectItem` packed pointer | hi u64 @0x0 mask `0x3FFF00000000`, lo u32 @0x8, `<<3` | hi u32 @0x4, lo u32 @0x10 bswapped, `<<3` |
+| Num / Max / NumChunks | XOR keys | byteswap + XOR keys |
+| `UObject` index | XOR `0x753838AB` | bswap + XOR `0xDD1A7CBF` |
+| `FField::Next` | bit0 flag + XOR `0x47DCC0173F15EC38` | bit0 flag + mul/bsawp chain |
+| `FProperty` offset / flags / size | plaintext | byteswap + XOR |
+| `UClass` cast flags | plaintext | byteswap + XOR `0x6F64EC71` |
+| `FName` display index | plaintext | `(bswap32(raw-1) ^ 0xB8171D6F) + 1` |
+| `ToString` | `0x28D86` | `0x50D10` |
+| `ProcessEvent` | `0x3729A`, vtable idx 28 | `0x142136`, vtable idx 73 |
+
+Still pattern-scanned and **not** in either dump, so they need one run against the real
+`FortniteClient-Win64-Shipping.exe` to pin down: `Step`, `StepExplicitProperty`,
+`GetInterfaceAddress`, `StaticFindObject`, `StaticLoadObject`, `FNameConstructor`, `SpawnActor`,
+`Realloc`, the per-CL crash patch list in `dllmain.cpp`, the GFS plugin RVAs, and the
+`GIsClient` / `GIsServer` overrides in `Finders.cpp`.
+
+Run the server on 38.00 or 42.40 and read the `[Boron][Init] ... FAIL <<<` lines: every one of
+those names the offset still missing. `tools/crypto-selftest.cpp` round-trips both schemes
+against the dump formulas and prints `crypto self-test: ok`.
 
 ## Notes:
 
