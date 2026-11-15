@@ -119,8 +119,16 @@ Still pattern-scanned and **not** in either dump, so they need one run against t
 `GIsClient` / `GIsServer` overrides in `Finders.cpp`.
 
 Run the server on 38.00 or 42.40 and read the `[Boron][Init] ... FAIL <<<` lines: every one of
-those names the offset still missing. `tools/crypto-selftest.cpp` round-trips both schemes
-against the dump formulas and prints `crypto self-test: ok`.
+those names the offset still missing.
+
+`tools/crypto-selftest.cpp` round-trips both schemes against the dump formulas:
+
+```
+cl /nologo /std:c++20 /EHsc /DUNICODE /D_UNICODE /I.SDK tools\crypto-selftest.cpp /Fe:tools\crypto-selftest.exe /Fo:tools\
+tools\crypto-selftest.exe
+```
+
+prints `crypto self-test: ok` when both keyed schemes decode exactly what the dumps describe.
 
 ## Notes:
 
